@@ -5,35 +5,11 @@ use \Psr\Http\Message\ResponseInterface as Response;
 
 $app->group('/api', function () use ($app) {
     $app->group('/v1', function () use ($app) {
-        // Get All Services with pagination
-        $app->get('/services/{offset}/{limit}', function (Request $request, Response $response) {
-            $limit = $request->getAttribute('limit');
-            $offset = $request->getAttribute('offset');
-            $sql = "SELECT * FROM Service LIMIT :limit OFFSET :offset";
-
-            try {
-                // Get DB Object
-                $db = new db();
-                // Connect
-                $db = $db->connect();
-                $stmt = $db->prepare($sql);
-
-                $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-                $stmt->bindValue(':offset',  $offset, PDO::PARAM_INT);
-
-                $stmt->execute();
-                $Services = $stmt->fetchAll(PDO::FETCH_OBJ);
-
-                $db = null;
-                echo json_encode($Services);
-            } catch (PDOException $e) {
-                echo '{"error": {"text": ' . $e->getMessage() . '}';
-            }
-        }); 
-
         // Get All Services
-        $app->get('/services', function (Request $request, Response $response) {
-            $sql = "SELECT * FROM Service WHERE status <> 'inactive'";
+        $app->get('/services[/{params:.*}]', function (Request $request, Response $response) {
+            $sql = "SELECT * FROM Service";
+
+            $filters = $request->getQueryParams();
 
             try {
                 // Get DB Object
@@ -41,7 +17,49 @@ $app->group('/api', function () use ($app) {
                 // Connect
                 $db = $db->connect();
 
-                $stmt = $db->query($sql);
+                if(!empty($filters)){
+
+                    extract($filters);
+
+                    if(!is_null($limit)){
+                        unset($filters['limit']);                        
+                    }
+
+                    if(!is_null($offset)){
+                        unset($filters['offset']);                        
+                    }                   
+
+                    foreach (array_keys($filters) as $key) {
+                        if(!strstr($sql, 'WHERE')){           
+                            $sql .= " WHERE $key like :$key";
+                        }else{
+                            $sql .= " AND $key like :$key";
+                        }
+                    }                    
+                    
+                    if(!is_null($limit)){
+                        $sql .= " LIMIT :limit";
+                        $filters['limit'] = $limit;
+                    }
+                    
+                    if(!is_null($offset)){
+                        $sql .= " OFFSET :offset";
+                        $filters['offset'] = $offset;
+                    }
+
+                    $stmt = $db->prepare($sql);
+                    foreach ($filters as $key => $value) {
+                        if(is_numeric($value)){
+                            $stmt->bindValue(":$key", $value, PDO::PARAM_INT);
+                        }else{
+                            $stmt->bindValue(":$key", "%".$value."%", PDO::PARAM_STR_CHAR);                            
+                        }
+                    }
+                    $stmt->execute();               
+                }else{
+                    $stmt = $db->query($sql);
+                }
+                
                 $services = $stmt->fetchAll(PDO::FETCH_OBJ);
                 $db = null;
                 echo json_encode($services);
@@ -73,7 +91,7 @@ $app->group('/api', function () use ($app) {
 
         // Add Service
         $app->post('/service', function (Request $request, Response $response) {
-            $uuid = uniqid();
+            $uuid = UUID::v4();
             $type = $request->getParam('type');
             $cost = $request->getParam('cost');
             $status = $request->getParam('status');

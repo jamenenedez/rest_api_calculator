@@ -27,6 +27,8 @@ $app->get('/hello/{name}', function (Request $request, Response $response) {
     return $response;
 });
 
+require_once(__DIR__."/../src/utils/UUID.php");
+
 // User Routes
 require '../src/routes/users.php';
 

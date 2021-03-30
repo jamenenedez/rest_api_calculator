@@ -4,43 +4,61 @@ use \Psr\Http\Message\ResponseInterface as Response;
 
 $app->group('/api', function() use ($app){
     $app->group('/v1', function() use ($app){
-        // Get All Users with pagination
-        $app->get('/users/{offset}/{limit}', function(Request $request, Response $response){
-            $limit = $request->getAttribute('limit');            
-            $offset = $request->getAttribute('offset');       
-            $sql = "SELECT * FROM User LIMIT :limit OFFSET :offset";
-           
-            try{
-                // Get DB Object
-                $db = new db();
-                // Connect
-                $db = $db->connect();
-                $stmt = $db->prepare($sql);
-                
-                $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-                $stmt->bindValue(':offset',  $offset, PDO::PARAM_INT);
-
-                $stmt->execute();       
-                $users = $stmt->fetchAll(PDO::FETCH_OBJ);
-
-                $db = null;
-                echo json_encode($users);
-            } catch(PDOException $e){
-                echo '{"error": {"text": '.$e->getMessage().'}';
-            }
-        });
-
         // Get All Users
-        $app->get('/users', function(Request $request, Response $response){
-            $sql = "SELECT * FROM User WHERE status <> 'inactive'";
+        $app->get('/users[/{params:.*}]', function(Request $request, Response $response){
+            $sql = "SELECT * FROM User";
+
+            $filters = $request->getQueryParams();
 
             try{
                 // Get DB Object
                 $db = new db();
                 // Connect
                 $db = $db->connect();
-        
-                $stmt = $db->query($sql);
+
+                if(!empty($filters)){
+
+                    extract($filters);
+
+                    if(!is_null($limit)){
+                        unset($filters['limit']);                        
+                    }
+
+                    if(!is_null($offset)){
+                        unset($filters['offset']);                        
+                    }                   
+
+                    foreach (array_keys($filters) as $key) {
+                        if(!strstr($sql, 'WHERE')){           
+                            $sql .= " WHERE $key like :$key";
+                        }else{
+                            $sql .= " AND $key like :$key";
+                        }
+                    }                    
+                    
+                    if(!is_null($limit)){
+                        $sql .= " LIMIT :limit";
+                        $filters['limit'] = $limit;
+                    }
+                    
+                    if(!is_null($offset)){
+                        $sql .= " OFFSET :offset";
+                        $filters['offset'] = $offset;
+                    }
+
+                    $stmt = $db->prepare($sql);
+                    foreach ($filters as $key => $value) {
+                        if(is_numeric($value)){
+                            $stmt->bindValue(":$key", $value, PDO::PARAM_INT);
+                        }else{
+                            $stmt->bindValue(":$key", "%".$value."%", PDO::PARAM_STR_CHAR);                            
+                        }
+                    }
+                    $stmt->execute();               
+                }else{
+                    $stmt = $db->query($sql);
+                }    
+
                 $users = $stmt->fetchAll(PDO::FETCH_OBJ);
                 $db = null;
                 echo json_encode($users);
@@ -72,7 +90,7 @@ $app->group('/api', function() use ($app){
         
         // Add User
         $app->post('/user', function(Request $request, Response $response){
-            $uuid = uniqid();
+            $uuid = UUID::v4();
             $username = $request->getParam('username');
             $password = $request->getParam('password');
             $role = $request->getParam('role');
@@ -91,18 +109,16 @@ $app->group('/api', function() use ($app){
         
                 $stmt->bindParam(':uuid', $uuid);
                 $stmt->bindParam(':username', $username);
-                $stmt->bindParam(':password',  $password);
-                $stmt->bindParam(':role',      $role);
-                $stmt->bindParam(':status',      $status);
+                $stmt->bindParam(':password', $password);
+                $stmt->bindParam(':role', $role);
+                $stmt->bindParam(':status', $status);
         
                 $stmt->execute();
         
                 echo json_encode(["notice" => ["text" => "User Added"]]);
-                /* echo '{"notice": {"text": "User Added"}'; */
         
             } catch(PDOException $e){
                 echo json_encode(["error" => ["text" => $e->getMessage()]]);
-                /* echo '{"error": {"text": '.$e->getMessage().'}'; */
             }
         });
         
@@ -154,11 +170,9 @@ $app->group('/api', function() use ($app){
                 $stmt->execute();
                 
                 echo json_encode(["notice" => ["text" => "User Updated"]]);
-                /* echo '{"notice": {"text": "User Updated"}'; */
         
             } catch(PDOException $e){
                 echo json_encode(["error" => ["text" => $e->getMessage()]]);
-                /* echo '{"error": {"text": '.$e->getMessage().'}'; */
             }
         });
         
@@ -178,10 +192,8 @@ $app->group('/api', function() use ($app){
                 $stmt->execute();
                 $db = null;
                 echo json_encode(["notice" => ["text" => "User Deleted"]]);
-                /* echo '{"notice": {"text": "User Deleted"}'; */
             } catch(PDOException $e){
                 echo json_encode(["error" => ["text" => $e->getMessage()]]);
-                /* echo '{"error": {"text": '.$e->getMessage().'}'; */
             }
         });
     });

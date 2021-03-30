@@ -5,35 +5,12 @@ use \Psr\Http\Message\ResponseInterface as Response;
 
 $app->group('/api', function () use ($app) {
     $app->group('/v1', function () use ($app) {
-        // Get All Records with pagination
-        $app->get('/records/{offset}/{limit}', function (Request $request, Response $response) {
-            $limit = $request->getAttribute('limit');
-            $offset = $request->getAttribute('offset');
-            $sql = "SELECT * FROM Record LIMIT :limit OFFSET :offset";
-
-            try {
-                // Get DB Object
-                $db = new db();
-                // Connect
-                $db = $db->connect();
-                $stmt = $db->prepare($sql);
-
-                $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-                $stmt->bindValue(':offset',  $offset, PDO::PARAM_INT);
-
-                $stmt->execute();
-                $records = $stmt->fetchAll(PDO::FETCH_OBJ);
-
-                $db = null;
-                echo json_encode($records);
-            } catch (PDOException $e) {
-                echo '{"error": {"text": ' . $e->getMessage() . '}';
-            }
-        });
 
         // Get All Records
-        $app->get('/records', function (Request $request, Response $response) {
+        $app->get('/records[/{params:.*}]', function (Request $request, Response $response) {
             $sql = "SELECT * FROM Record";
+
+            $filters = $request->getQueryParams();
 
             try {
                 // Get DB Object
@@ -41,7 +18,49 @@ $app->group('/api', function () use ($app) {
                 // Connect
                 $db = $db->connect();
 
-                $stmt = $db->query($sql);
+                if(!empty($filters)){
+
+                    extract($filters);
+
+                    if(!is_null($limit)){
+                        unset($filters['limit']);                        
+                    }
+
+                    if(!is_null($offset)){
+                        unset($filters['offset']);                        
+                    }                   
+
+                    foreach (array_keys($filters) as $key) {
+                        if(!strstr($sql, 'WHERE')){           
+                            $sql .= " WHERE $key like :$key";
+                        }else{
+                            $sql .= " AND $key like :$key";
+                        }
+                    }                    
+                    
+                    if(!is_null($limit)){
+                        $sql .= " LIMIT :limit";
+                        $filters['limit'] = $limit;
+                    }
+                    
+                    if(!is_null($offset)){
+                        $sql .= " OFFSET :offset";
+                        $filters['offset'] = $offset;
+                    }
+
+                    $stmt = $db->prepare($sql);
+                    foreach ($filters as $key => $value) {
+                        if(is_numeric($value)){
+                            $stmt->bindValue(":$key", $value, PDO::PARAM_INT);
+                        }else{
+                            $stmt->bindValue(":$key", "%".$value."%", PDO::PARAM_STR_CHAR);                            
+                        }
+                    }
+                    $stmt->execute();               
+                }else{
+                    $stmt = $db->query($sql);
+                }
+                
                 $records = $stmt->fetchAll(PDO::FETCH_OBJ);
                 $db = null;
                 echo json_encode($records);
@@ -266,7 +285,7 @@ $app->group('/api', function () use ($app) {
                     (:uuid,:service_id,:user_id,:cost,:user_balance,:service_response)";
 
                     $stmt = $db->prepare($sql);
-                    $uuid = uniqid();
+                    $uuid = UUID::v4();
                     $user_balance = $user->balance - $cost;
                     $stmt->bindParam(':uuid', $uuid);
                     $stmt->bindParam(':service_id', $service_id);
@@ -337,10 +356,8 @@ $app->group('/api', function () use ($app) {
                 $stmt->execute();
 
                 echo json_encode(["notice" => ["text" => "Record Updated"]]);
-                /* echo '{"notice": {"text": "Record Updated"}'; */
             } catch (PDOException $e) {
                 echo json_encode(["error" => ["text" => $e->getMessage()]]);
-                /* echo '{"error": {"text": '.$e->getMessage().'}'; */
             }
         });
 
@@ -360,10 +377,8 @@ $app->group('/api', function () use ($app) {
                 $stmt->execute();
                 $db = null;
                 echo json_encode(["notice" => ["text" => "Record Deleted"]]);
-                /* echo '{"notice": {"text": "Record Deleted"}'; */
             } catch (PDOException $e) {
                 echo json_encode(["error" => ["text" => $e->getMessage()]]);
-                /* echo '{"error": {"text": '.$e->getMessage().'}'; */
             }
         });
     });
