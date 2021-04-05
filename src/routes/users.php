@@ -29,12 +29,16 @@ $app->group('/api', function() use ($app){
                     }                   
 
                     foreach (array_keys($filters) as $key) {
-                        if(!strstr($sql, 'WHERE')){           
-                            $sql .= " WHERE $key like :$key";
+                        if(!strstr($sql, 'WHERE')){
+                            if(in_array($key,['status', 'role'])){
+                                $sql .= " WHERE $key = :$key";
+                            }else{
+                                $sql .= " WHERE $key like :$key";
+                            }
                         }else{
                             $sql .= " AND $key like :$key";
                         }
-                    }                    
+                    }     
                     
                     if(!is_null($limit)){
                         $sql .= " LIMIT :limit";
@@ -50,6 +54,8 @@ $app->group('/api', function() use ($app){
                     foreach ($filters as $key => $value) {
                         if(is_numeric($value)){
                             $stmt->bindValue(":$key", $value, PDO::PARAM_INT);
+                        }elseif (in_array($key,['status', 'role'])) {
+                            $stmt->bindValue(":$key", $value, PDO::PARAM_STR_CHAR);                            
                         }else{
                             $stmt->bindValue(":$key", "%".$value."%", PDO::PARAM_STR_CHAR);                            
                         }
@@ -94,10 +100,11 @@ $app->group('/api', function() use ($app){
             $username = $request->getParam('username');
             $password = $request->getParam('password');
             $role = $request->getParam('role');
+            $balance = $request->getParam('balance');
             $status = $request->getParam('status');
         
-            $sql = "INSERT INTO User (uuid,username,password,role,status) VALUES
-            (:uuid,:username,:password,:role,:status)";
+            $sql = "INSERT INTO User (uuid,username,password,role,balance,status) VALUES
+            (:uuid,:username,:password,:role,:balance,:status)";
         
             try{
                 // Get DB Object
@@ -111,6 +118,7 @@ $app->group('/api', function() use ($app){
                 $stmt->bindParam(':username', $username);
                 $stmt->bindParam(':password', $password);
                 $stmt->bindParam(':role', $role);
+                $stmt->bindParam(':balance', $balance);
                 $stmt->bindParam(':status', $status);
         
                 $stmt->execute();
@@ -128,6 +136,7 @@ $app->group('/api', function() use ($app){
             $username = $request->getParam('username');
             $password = $request->getParam('password');
             $role = $request->getParam('role');
+            $balance = $request->getParam('balance');
             $status = $request->getParam('status');
 
             $sets = [];
@@ -142,6 +151,9 @@ $app->group('/api', function() use ($app){
             }
             if($status){
                 $sets[] = 'status = :status';
+            }
+            if($balance){
+                $sets[] = 'balance = :balance';
             }
         
             $sql = "UPDATE User SET ".implode(", ", $sets)." WHERE id = $id";
@@ -158,13 +170,16 @@ $app->group('/api', function() use ($app){
                     $stmt->bindParam(':username', $username);
                 }
                 if($password){
-                    $stmt->bindParam(':password',  $password);
+                    $stmt->bindParam(':password', $password);
                 }
                 if($role){
-                    $stmt->bindParam(':role',      $role);
+                    $stmt->bindParam(':role', $role);
                 }
                 if($status){
-                    $stmt->bindParam(':status',      $status);
+                    $stmt->bindParam(':status', $status);
+                }
+                if($balance){
+                    $stmt->bindParam(':balance', $balance);
                 }        
         
                 $stmt->execute();

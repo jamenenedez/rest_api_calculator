@@ -31,7 +31,11 @@ $app->group('/api', function () use ($app) {
 
                     foreach (array_keys($filters) as $key) {
                         if(!strstr($sql, 'WHERE')){           
-                            $sql .= " WHERE $key like :$key";
+                            if(in_array($key,['type', 'status'])){
+                                $sql .= " WHERE $key = :$key";
+                            }else{
+                                $sql .= " WHERE $key like :$key";
+                            }
                         }else{
                             $sql .= " AND $key like :$key";
                         }
@@ -51,6 +55,8 @@ $app->group('/api', function () use ($app) {
                     foreach ($filters as $key => $value) {
                         if(is_numeric($value)){
                             $stmt->bindValue(":$key", $value, PDO::PARAM_INT);
+                        }elseif (in_array($key,['type', 'status'])) {
+                            $stmt->bindValue(":$key", $value, PDO::PARAM_STR_CHAR);                            
                         }else{
                             $stmt->bindValue(":$key", "%".$value."%", PDO::PARAM_STR_CHAR);                            
                         }

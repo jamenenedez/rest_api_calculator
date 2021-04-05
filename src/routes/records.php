@@ -8,7 +8,10 @@ $app->group('/api', function () use ($app) {
 
         // Get All Records
         $app->get('/records[/{params:.*}]', function (Request $request, Response $response) {
-            $sql = "SELECT * FROM Record";
+            $sql = "SELECT r.*, u.username, s.type 
+                    FROM Record r 
+                    INNER JOIN User u ON r.user_id = u.id
+                    INNER JOIN Service s ON r.service_id = s.id";
 
             $filters = $request->getQueryParams();
 
@@ -32,9 +35,13 @@ $app->group('/api', function () use ($app) {
 
                     foreach (array_keys($filters) as $key) {
                         if(!strstr($sql, 'WHERE')){           
-                            $sql .= " WHERE $key like :$key";
+                            if(in_array($key,['status'])){
+                                $sql .= " WHERE r.$key = :$key";
+                            }else{
+                                $sql .= " WHERE r.$key like :$key";
+                            }
                         }else{
-                            $sql .= " AND $key like :$key";
+                            $sql .= " AND r.$key like :$key";
                         }
                     }                    
                     
@@ -52,6 +59,8 @@ $app->group('/api', function () use ($app) {
                     foreach ($filters as $key => $value) {
                         if(is_numeric($value)){
                             $stmt->bindValue(":$key", $value, PDO::PARAM_INT);
+                        }elseif (in_array($key,['status'])) {
+                            $stmt->bindValue(":$key", $value, PDO::PARAM_STR_CHAR);                            
                         }else{
                             $stmt->bindValue(":$key", "%".$value."%", PDO::PARAM_STR_CHAR);                            
                         }
@@ -73,7 +82,11 @@ $app->group('/api', function () use ($app) {
         $app->get('/record/{id}', function (Request $request, Response $response) {
             $id = $request->getAttribute('id');
 
-            $sql = "SELECT * FROM Record WHERE id = $id";
+            $sql = "SELECT r.*, u.username, s.type 
+                    FROM Record r 
+                    INNER JOIN User u ON r.user_id = u.id
+                    INNER JOIN Service s ON r.service_id = s.id
+                    WHERE r.id = $id";
 
             try {
                 // Get DB Object
@@ -93,8 +106,17 @@ $app->group('/api', function () use ($app) {
         // Add Record
         $app->post('/record', function (Request $request, Response $response) {
             
-            $service_id = $request->getParam('service_id');
+            /* $service_id = $request->getParam('service_id'); */
             $str = $request->getParam('str');
+            $service = "";
+            if($str){
+                $tokens = explode(" ", $str);
+                if($tokens){
+                    $service = trim($tokens[0]);
+                    unset($tokens[0]);
+                    $str = trim(implode(" ", $tokens));
+                }
+            }
             $user_id = $request->getParam('user_id');
 
             $db = new db();
@@ -102,19 +124,24 @@ $app->group('/api', function () use ($app) {
             
             try {               
 
-                if(!$service_id){
-                    throw new Exception("Service ID is required", 1);
+                if(!$service){
+                    throw new Exception("Service is required", 1);
                 }
                 if(!$user_id){
                     throw new Exception("User ID is required", 1);
                 }                
                 
                 // Looks for the service
-                $sql = "SELECT * FROM Service WHERE id = :service_id";
+                $sql = "SELECT * FROM Service WHERE type = :type and status = :status";
                 $stmt = $db->prepare($sql);
-                $stmt->bindValue(':service_id', $service_id, PDO::PARAM_INT);
+                $stmt->bindValue(':type', $service);
+                $stmt->bindValue(':status', 'active');
                 $stmt->execute();
                 $service = $stmt->fetch(PDO::FETCH_OBJ);
+
+                if(!$service){
+                    throw new Exception("Service name not found", 1);
+                }
                 
                 // Looks for the user
                 $sql = "SELECT * FROM User WHERE id = :user_id";
@@ -123,7 +150,12 @@ $app->group('/api', function () use ($app) {
                 $stmt->execute();
                 $user = $stmt->fetch(PDO::FETCH_OBJ);
 
+                if(!$user){
+                    throw new Exception("User not found", 1);
+                }
+
                 if($service && $user){
+                    $service_id = $service->id;
                     $service_response = "failed";
                     $cost = 0;
                     switch ($service->type) {
@@ -267,11 +299,6 @@ $app->group('/api', function () use ($app) {
                             }
                             break;
                         }
-
-                        default:{
-                            # code...
-                            break;
-                        }
                     }
 
                     if($service_response == "failed"){
@@ -318,13 +345,21 @@ $app->group('/api', function () use ($app) {
         // Update Record
         $app->put('/record/{id}', function (Request $request, Response $response) {
             $id = $request->getAttribute('id');
-            $type = !empty($request->getParam('type')) ? $request->getParam('type') : null;
+            $service_id = !empty($request->getParam('service_id')) ? $request->getParam('service_id') : null;
+            $user_id = !empty($request->getParam('user_id')) ? $request->getParam('user_id') : null;
+            $service_response = !empty($request->getParam('service_response')) ? $request->getParam('service_response') : null;
             $cost = !empty($request->getParam('cost')) ? $request->getParam('cost') : null;
             $status = !empty($request->getParam('status')) ? $request->getParam('status') : null;
 
             $sets = [];
-            if ($type) {
-                $sets[] = 'type = :type';
+            if ($service_id) {
+                $sets[] = 'service_id = :service_id';
+            }
+            if ($user_id) {
+                $sets[] = 'user_id = :user_id';
+            }
+            if ($service_response) {
+                $sets[] = 'service_response = :service_response';
             }
             if ($cost) {
                 $sets[] = 'cost = :cost';
@@ -343,11 +378,17 @@ $app->group('/api', function () use ($app) {
 
                 $stmt = $db->prepare($sql);
 
-                if ($type) {
-                    $stmt->bindParam(':type', $type);
+                if ($service_id) {
+                    $stmt->bindParam(':service_id', $service_id);
+                }
+                if ($user_id) {
+                    $stmt->bindParam(':user_id',  $user_id);
+                }
+                if ($service_response) {
+                    $stmt->bindParam(':service_response', $service_response);
                 }
                 if ($cost) {
-                    $stmt->bindParam(':cost',  $cost);
+                    $stmt->bindParam(':cost', $cost);
                 }
                 if ($status) {
                     $stmt->bindParam(':status', $status);
