@@ -3,8 +3,8 @@
 use \Psr\Http\Message\ServerRequestInterface as Request;
 use \Psr\Http\Message\ResponseInterface as Response;
 
-require '../vendor/autoload.php';
-require '../src/config/db.php';
+require_once(__DIR__.'/../vendor/autoload.php');
+require_once(__DIR__.'/../src/config/db.php');
 
 $app = new \Slim\App();
 
@@ -30,12 +30,12 @@ $app->get('/hello/{name}', function (Request $request, Response $response) {
 require_once(__DIR__."/../src/utils/UUID.php");
 
 // User Routes
-require '../src/routes/users.php';
+require_once(__DIR__.'/../src/routes/users.php');
 
 // Service Routes
-require '../src/routes/services.php';
+require_once(__DIR__.'/../src/routes/services.php');
 
 // Record Routes
-require '../src/routes/records.php';
+require_once(__DIR__.'/../src/routes/records.php');
 
 $app->run();

@@ -1,5 +1,5 @@
 # Rest API Calculator
-Rest API Calculator is a simple API for math operations. You can do addition, subtraction, multiplication, division, square root, free form and a random string generation. It uses credit for perform each operation and if the user’s balance isn’t enough to cover the request cost the request is denied.
+Rest API Calculator is a simple API for math operations. You can do addition, subtraction, multiplication, division, square root, free form and a random string generation. It uses credit for perform each operation and if the balance of the user balance is not enough to cover the request cost the request is denied.
 
 ## Requirements
 <ol>

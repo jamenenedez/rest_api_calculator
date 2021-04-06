@@ -13,4 +13,8 @@
             $dbConnection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             return $dbConnection;
         }
+
+        public function getName(){
+            return $this->dbname;
+        }
     }
