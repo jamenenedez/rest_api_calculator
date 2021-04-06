@@ -5,5 +5,6 @@ $migrator->migrate(array(
     "CreateUser",
     "CreateService",
     "CreateRecord",
-    "AddAdmin"
+    "AddAdmin",
+    "AddUser",
 ));
