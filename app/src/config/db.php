@@ -1,7 +1,7 @@
 <?php
     class db{
         // Properties
-        private $dbhost = 'localhost';
+        private $dbhost = 'mysql_db'; // Host from local or continerID
         private $dbuser = 'root';
         private $dbpass = 'Estudios-*2020';
         private $dbname = 'API_CALCULATOR';

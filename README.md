@@ -4,8 +4,10 @@ Rest API Calculator is a simple API for math operations. You can do addition, su
 ## Requirements
 <ol>
     <li>composer</li>
-    <li>PHP 7/8</li>
-    <li>MySQL 5.7/8</li>
+    <li>docker</li>
+    <li>docker-compose</li>
+    <li>PHP >= 7.4</li>
+    <li>MySQL >= 5.7</li>
 </ol>
 
 ### Service Management
@@ -504,3 +506,28 @@ DELETE
         }         
     }   
   ```
+
+  # Installation steps
+  <ul>
+    <li>Go to 'app' folder and execute:</li>
+  </ul>
+
+  ```shell
+     composer install
+  ```
+  <ul>
+    <li>Then go back to root folder and execute:</li>
+  </ul>
+
+  ```shell
+     sudo docker-compose up
+  ```
+  <ul>
+    <li>Finally run this command to boostrap the system:</li>
+  </ul>
+
+  ```shell
+     sudo docker exec -it apache_ct php7.4 /var/www/html/rest_api_calculator/app/src/utils/migration/run.php
+  ```
+
+  

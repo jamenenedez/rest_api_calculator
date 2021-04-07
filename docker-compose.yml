@@ -1,8 +1,28 @@
-version: "3.9"
+version: '3'
 services:
-  web:
-    build: .
+  devmysql:
+    image: mysql_img
+    container_name: mysql_db
+    build:
+      context: ./
+      dockerfile: MySQLDev.DockerFile
     ports:
-      - "8080:80"
+      - "3300:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: Estudios-*2020 # it should be change by an ssh key
+      MYSQL_DATABASE: API_CALCULATOR
+      #MYSQL_ALLOW_EMPTY_PASSWORD : 'yes'
+    restart: always  
+    volumes: 
+      - ./mysql/db.sql:/docker-entrypoint-initdb.d/dump.sql       
+  devbox:
+    image: apache_img
+    container_name: apache_ct
+    build:
+      context: ./
+      dockerfile: DevBox.DockerFile
+    ports:
+      - "90:80"
+      - "443:443"
     volumes:
-      - .:/var/www/html/rest_api_calculator
+      - .:/var/www/html/rest_api_calculator  
